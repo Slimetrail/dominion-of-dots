@@ -238,9 +238,9 @@ function doMove(a,b){const s=split(G.terrs[a].army,sendFrac);if(!men(s))return;c
  log("You sent "+men(s)+" men toward "+MAP.T[b].name+(m.done?" (arrived)":" · ETA "+eta(m)+" turn(s)"));sel=-1;tgt=[];save();panel()}
 function sheet(html){const m=document.createElement("div");m.className="modal";m.innerHTML=`<div class="sheet">${html}</div>`;document.body.appendChild(m);return m}
 function attackSheet(a,b){
- const s=split(G.terrs[a].army,sendFrac),d=G.terrs[b];
+ const s=split(G.terrs[a].army,sendFrac),d0=G.terrs[b],d={...d0,army:{...d0.army}};if(d0.owner>=0)marchesAt(b,d0.owner).forEach(m=>addArmy(d.army,m.army));
  if(men(s)==0){toast("Nothing to send");return}
- const m=sheet(`<h2>⚔ Attack ${MAP.T[b].name}</h2><div>Your force: ${armyStr(s)} (${men(s)} men)</div><div>Defender: <b style="color:${ownerCol(d.owner)}">${ownerName(d.owner)}</b> ${armyStr(d.army)} (${men(d.army)})${d.cap>=0?"<br>🏰 Castle walls! Defenders get cover.":""}</div>
+ const m=sheet(`<h2>⚔ Attack ${MAP.T[b].name}</h2><div>Your force: ${armyStr(s)} (${men(s)} men)</div><div>Defender: <b style="color:${ownerCol(d.owner)}">${ownerName(d.owner)}</b> ${armyStr(d.army)} (${men(d.army)})${men(d.army)==0?" <b>· undefended: walk in!</b>":""}${d.cap>=0?"<br>🏰 Castle walls! Defenders get cover.":""}</div>
  <div style="margin:6px 0">Odds (rough strength): <b>${(pow(s)/(pow(d.army)*(d.cap>=0?1.4:1)+.1)).toFixed(1)}×</b></div>
  <div class="row"><button class="b g" id="cmdB">🎯 Command battle</button><button class="b y" id="autoB">⚡ Auto-resolve</button><button class="b r" id="xB">Cancel</button></div>`);
  m.querySelector("#xB").onclick=()=>m.remove();

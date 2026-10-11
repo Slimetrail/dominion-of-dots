@@ -31,7 +31,7 @@ html,body{margin:0;height:100%;background:#2a1d12;overflow:hidden;touch-action:n
 .sheet h2{margin:0 0 6px;font-size:21px}
 table{border-collapse:collapse;font-size:14px}td,th{padding:3px 6px;text-align:left}
 #log{font-size:13px;max-height:90px;overflow:auto;opacity:.85;margin-top:4px}
-#toast{position:fixed;left:50%;top:70px;transform:translateX(-50%);z-index:40;background:#3b2a1a;color:#f6e7c1;padding:8px 14px;border-radius:12px;font-weight:700;max-width:90vw;text-align:center;transition:opacity .4s}
+#toast{pointer-events:none;position:fixed;left:50%;top:70px;transform:translateX(-50%);z-index:40;background:#3b2a1a;color:#f6e7c1;padding:8px 14px;border-radius:12px;font-weight:700;max-width:90vw;text-align:center;transition:opacity .4s}
 #bTop{display:flex;gap:6px;align-items:center;padding:6px 8px;padding-top:calc(6px + env(safe-area-inset-top,0px));background:#23361f;color:#eaf5d8;font:700 14px Georgia}
 #bTop .sp{flex:1}
 .bar{height:8px;width:70px;background:#0005;border-radius:4px;overflow:hidden;display:inline-block;vertical-align:middle}.bar i{display:block;height:100%}
@@ -57,8 +57,8 @@ table{border-collapse:collapse;font-size:14px}td,th{padding:3px 6px;text-align:l
  <div id="installHelp" class="hidden" style="background:#fff8e6;padding:10px;border-radius:12px">Tap Chrome's <b>⋮</b> menu → <b>Install app</b> / <b>Add to Home screen</b><br><small>(iPhone: Share ⬆️ → Add to Home Screen)</small><br><button class="b sm" id="helpOk">OK</button></div>
 </div>
 <div id="toast" style="opacity:0"></div>
-<script src="game.js?v=3"></script>
-<script>if('serviceWorker'in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js?v=3');
+<script src="game.js?v=4"></script>
+<script>if('serviceWorker'in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js?v=4');
 let deferredPrompt=null;const ib=document.getElementById("installBtn"),hp=document.getElementById("installHelp");
 const standalone=()=>matchMedia("(display-mode: standalone)").matches||matchMedia("(display-mode: fullscreen)").matches||navigator.standalone;
 if(standalone())ib.classList.add("hidden");
