@@ -79,7 +79,7 @@ function newGame(nAI,seed){
  seed=seed||Math.floor(Math.random()*1e9);R=rng(seed+7);
  MAP=genMap(seed);const T=MAP.T,np=nAI+1;
  const pers=[];for(let i=0;i<nAI;i++)pers.push(PERS[i%3]);pers.sort(()=>R()-.5);
- G={v:1,seed,turn:1,cur:0,phase:"recruit",econDone:false,moves:0,log:[],over:false,
+ G={v:1,seed,turn:1,cur:0,phase:"recruit",econDone:false,moves:0,log:[],over:false,marches:[],tired:[],
   players:Array.from({length:np},(_,i)=>({id:i,name:PNAMES[i],color:COLORS[i],ai:i>0,pers:i?pers[i-1]:"",gold:40,food:20,alive:true})),
   terrs:T.map((t,k)=>({owner:-1,army:army0(),gold:1+Math.floor(R()*3),food:1+Math.floor(R()*3),cap:-1}))};
  // capitals: farthest point sampling
@@ -112,16 +112,35 @@ function econ(pi){
  gold+=regs.reduce((s,g)=>s+g.bonus,0);
  const hasCap=G.terrs.some(t=>t.cap==pi&&t.owner==pi);
  if(!hasCap){gold=Math.floor(gold*.4);food=Math.floor(food*.7)}
- const up=Math.ceil(own.reduce((s,t)=>s+TYPES.reduce((q,k)=>q+t.army[k]*UT[k].food,0),0)/10);
+ const eat=a=>TYPES.reduce((q,k)=>q+a[k]*UT[k].food,0);const up=Math.ceil((own.reduce((s,t)=>s+eat(t.army),0)+(G.marches||[]).filter(m=>m.o==pi).reduce((s,m)=>s+eat(m.army),0))/10);
  return{gold,food,up,net:food-up,regs,hasCap};
 }
 function applyEcon(pi){
  const p=P(pi),e=econ(pi);p.gold+=e.gold;p.food+=e.net;let msg="";
  if(p.food<0){const frac=Math.min(.5,(-p.food)/Math.max(1,e.up)+.1);let lost=0;
-  G.terrs.forEach(t=>{if(t.owner!=pi)return;TYPES.forEach(k=>{const d=Math.ceil(t.army[k]*frac/10)*10;const dd=Math.min(t.army[k],d);t.army[k]-=dd;lost+=dd})});
+  [...G.terrs.filter(t=>t.owner==pi),...G.marches.filter(m=>m.o==pi).map(m=>({army:m.army}))].forEach(t=>{TYPES.forEach(k=>{const d=Math.ceil(t.army[k]*frac/10)*10;const dd=Math.min(t.army[k],d);t.army[k]-=dd;lost+=dd})});
   p.food=0;msg="Starvation! "+lost+" men deserted.";log(p.name+": "+msg)}
  p.food=Math.min(p.food,60);return msg;
 }
+
+// ---------- MARCHES (one tile per turn) ----------
+const isCav=a=>men(a)>0&&TYPES.every(k=>k=="H"||!a[k]);
+const mSpeed=m=>isCav(m.army)?2:1;
+function friendlyPath(pi,a,b){const prev={};prev[a]=-1;const q=[a];while(q.length){const u=q.shift();if(u==b)break;MAP.T[u].adj.forEach(v=>{if(prev[v]===undefined&&G.terrs[v].owner==pi){prev[v]=u;q.push(v)}})}
+ if(prev[b]===undefined)return null;const p=[];for(let u=b;u!=-1;u=prev[u])p.unshift(u);return p}
+function reachable(pi,a){return G.terrs.map((t,k)=>k).filter(k=>k!=a&&G.terrs[k].owner==pi&&friendlyPath(pi,a,k))}
+function addArmy(t,a){TYPES.forEach(k=>t[k]+=a[k])}
+function stepMarch(m){const n=mSpeed(m);m.last=G.turn+":"+G.cur;
+ for(let i=0;i<n&&m.pos<m.path.length-1;i++){const nx=m.path[m.pos+1];
+  if(G.terrs[nx].owner!=m.o){m.stop=true;log(ownerName(m.o)+"'s march was cut off at "+MAP.T[m.path[m.pos]].name);break}
+  m.pos++}
+ if(m.stop||m.pos>=m.path.length-1){const t=G.terrs[m.path[m.pos]];if(t.owner==m.o)addArmy(t.army,m.army);if(!G.tired.includes(m.path[m.pos]))G.tired.push(m.path[m.pos]);m.done=true}
+ G.marches=G.marches.filter(x=>!x.done)}
+function orderMarch(pi,a,b,s){const path=friendlyPath(pi,a,b);if(!path)return null;TYPES.forEach(k=>G.terrs[a].army[k]-=s[k]);
+ const m={o:pi,army:s,path,pos:0};G.marches.push(m);stepMarch(m);return m}
+function advanceMarches(pi){G.marches.filter(m=>m.o==pi&&m.last!=G.turn+":"+G.cur).forEach(stepMarch)}
+const eta=m=>Math.ceil((m.path.length-1-m.pos)/mSpeed(m));
+const marchesAt=(k,o)=>G.marches.filter(m=>m.path[m.pos]==k&&(o==null||m.o==o));
 
 // ---------- MAP RENDER ----------
 const mc=$("mapC"),mx=mc.getContext("2d");let mapImg=null,sel=-1,tgt=[],pulse=0;
@@ -150,12 +169,19 @@ function drawMap(){
  // targets
  tgt.forEach(k=>{mx.strokeStyle="#ffd84a";mx.lineWidth=3+Math.sin(pulse)*1.5;mx.beginPath();mx.arc(T[k].cx,T[k].cy,17,0,7);mx.stroke();
   if(sel>=0){mx.strokeStyle="#ffd84a99";mx.lineWidth=2;mx.beginPath();mx.moveTo(T[sel].cx,T[sel].cy);mx.lineTo(T[k].cx,T[k].cy);mx.stroke()}});
+ G.marches.forEach(m=>{const pts=m.path.slice(m.pos).map(k=>[T[k].cx,T[k].cy]);if(pts.length<2)return;const c=ownerCol(m.o);
+  mx.strokeStyle=c;mx.lineWidth=3;mx.setLineDash([6,4]);mx.beginPath();pts.forEach(([x,y],i)=>i?mx.lineTo(x,y):mx.moveTo(x,y));mx.stroke();mx.setLineDash([]);
+  const[ax,ay]=pts[pts.length-2],[bx,by]=pts[pts.length-1],an=Math.atan2(by-ay,bx-ax),hx=bx-Math.cos(an)*14,hy=by-Math.sin(an)*14;
+  mx.fillStyle=c;mx.beginPath();mx.moveTo(hx,hy);mx.lineTo(hx-Math.cos(an-.5)*9,hy-Math.sin(an-.5)*9);mx.lineTo(hx-Math.cos(an+.5)*9,hy-Math.sin(an+.5)*9);mx.fill()});
  G.terrs.forEach((t,k)=>{const x=T[k].cx,y=T[k].cy;
   if(t.cap>=0)drawCastle(x,y-14,ownerCol(t.owner));
   mx.fillStyle=ownerCol(t.owner);mx.strokeStyle=k==sel?"#ffd84a":"#1f160e";mx.lineWidth=k==sel?3:1.5;
   mx.beginPath();mx.arc(x,y,11,0,7);mx.fill();mx.stroke();
   mx.fillStyle="#fff";mx.font="bold 9px system-ui";mx.textAlign="center";mx.textBaseline="middle";mx.fillText(fmt(men(t.army)),x,y+.5);
  });
+ const seen={};G.marches.forEach(m=>{const k=m.path[m.pos],j=seen[k]=(seen[k]||0)+1,x=T[k].cx+13,y=T[k].cy-8+12*(j-1);
+  mx.fillStyle="#fff8e6";mx.strokeStyle=ownerCol(m.o);mx.lineWidth=2;mx.beginPath();mx.rect(x-2,y-6,34,12);mx.fill();mx.stroke();
+  mx.fillStyle="#2a1d12";mx.font="bold 8px system-ui";mx.textAlign="left";mx.textBaseline="middle";mx.fillText((isCav(m.army)?"🐎":"🚶")+fmt(men(m.army))+" "+eta(m)+"⏳",x,y+.5)});
  mx.restore();
 }
 setInterval(()=>{if(tgt.length&&!$("app").classList.contains("hidden")){pulse+=.5;drawMap()}},120);
@@ -170,7 +196,7 @@ let busy=false,sendFrac=1;
 function topBar(){const p=P(0),e=econ(0);$("pSw").style.background=p.color;
  $("tGold").textContent="💰"+p.gold+" (+"+e.gold+")";$("tFood").textContent="🌾"+p.food+" ("+(e.net>=0?"+":"")+e.net+")";
  $("tTurn").textContent=G.cur==0?"Turn "+G.turn+" · "+({recruit:"Recruit",attack:"Attack",fortify:"Fortify"})[G.phase]:P(G.cur).name+"…";}
-function tInfo(k){const t=G.terrs[k],T=MAP.T[k];return `<b>${T.name}</b> <small>(${MAP.regions[T.region].name})</small> · <span style="color:${ownerCol(t.owner)}">${ownerName(t.owner)}</span>${t.cap>=0?" · 🏰 castle":""}<br>💰${t.gold} 🌾${t.food} · ${armyStr(t.army)}`}
+function tInfo(k){const t=G.terrs[k],T=MAP.T[k];return `<b>${T.name}</b> <small>(${MAP.regions[T.region].name})</small> · <span style="color:${ownerCol(t.owner)}">${ownerName(t.owner)}</span>${t.cap>=0?" · 🏰 castle":""}<br>💰${t.gold} 🌾${t.food} · ${armyStr(t.army)}${marchesAt(k).map(m=>`<br>🚩 Marching (${ownerName(m.o)}): ${armyStr(m.army)} → ${MAP.T[m.path[m.path.length-1]].name}, ${eta(m)} turn(s)`).join("")}`}
 const castles=pi=>G.terrs.map((t,k)=>t.owner==pi&&t.cap>=0?k:-1).filter(k=>k>=0);
 const recruitSpots=pi=>{const c=castles(pi);return c.length?c:G.terrs.map((t,k)=>t.owner==pi?k:-1).filter(k=>k>=0)};
 const costMult=pi=>castles(pi).length?1:1.5;
@@ -185,9 +211,9 @@ function panel(){
   TYPES.forEach(k=>{const c=Math.ceil(UT[k].cost*m);h+=`<button class="b sm" data-buy="${k}" ${P(0).gold<c?"disabled":""}>${UT[k].ic} +10 ${UT[k].n}<br><small>💰${c} · 🌾${UT[k].food}</small></button>`});
   h+=`</div><small>Tap a castle 🏰 on the map to hire there. Upkeep: each 10 men eat 🌾 per turn (cavalry 2). Starving armies desert!</small><div class="row"><button class="b g" id="nextB">Next: Attack ▶</button></div>`;
  }else if(ph=="attack"||ph=="fortify"){
-  h+=ph=="attack"?`<h3>② Attack</h3>`:`<h3>③ Fortify <small>(${3-G.moves} moves left)</small></h3>`;
+  h+=ph=="attack"?`<h3>② Attack</h3>`:`<h3>③ Fortify / March <small>(${3-G.moves} orders left)</small></h3>`;
   if(sel>=0)h+=`<div>${tInfo(sel)}</div>`;
-  h+=`<div>${sel<0?(ph=="attack"?"Tap one of your territories, then a glowing enemy to attack.":"Tap your territory, then a glowing neighbor to move troops."):tgt.length?"Now tap a glowing target.":"No targets from here."}</div>`;
+  h+=`<div>${sel<0?(ph=="attack"?"Tap one of your territories, then a glowing enemy to attack.":"Tap your territory, then any glowing friendly land to march there (1 land per turn)."):tgt.length?"Now tap a glowing target.":"No targets from here."}</div>`;
   h+=`<div class="row">Send: <button class="b sm ${sendFrac==1?"on":""}" data-f="1">All</button><button class="b sm ${sendFrac==.5?"on":""}" data-f=".5">Half</button><button class="b sm ${sendFrac==.75?"on":""}" data-f=".75">¾</button></div>`;
   h+=`<div class="row">${ph=="attack"?`<button class="b g" id="nextB">Next: Fortify ▶</button>`:`<button class="b r" id="endB">End turn ⏭</button>`}</div>`;
  }
@@ -202,13 +228,14 @@ function onTap(a){
  const t=G.terrs[a],ph=G.phase;
  if(ph=="recruit"){if(recruitSpots(0).includes(a))sel=a;else toast(MAP.T[a].name+": "+ownerName(t.owner)+" · "+armyStr(t.army));panel();return}
  if(sel>=0&&tgt.includes(a)){ph=="attack"?attackSheet(sel,a):doMove(sel,a);return}
- if(t.owner==0&&men(t.army)>0){sel=a;tgt=MAP.T[a].adj.filter(b=>ph=="attack"?G.terrs[b].owner!=0:G.terrs[b].owner==0);if(ph=="fortify"&&G.moves>=3)tgt=[]}
+ if(t.owner==0&&men(t.army)>0){sel=a;tgt=G.tired.includes(a)?[]:ph=="attack"?MAP.T[a].adj.filter(b=>G.terrs[b].owner!=0):reachable(0,a);if(ph=="fortify"&&G.moves>=3)tgt=[];if(G.tired.includes(a))toast("These troops already moved this turn")}
+ else if(t.owner==0){sel=a;tgt=[]}
  else{sel=-1;tgt=[];toast(MAP.T[a].name+" · "+ownerName(t.owner)+" · "+armyStr(t.army),2600)}
  panel();
 }
 function split(a,f){const s=army0();TYPES.forEach(k=>{s[k]=f>=1?a[k]:Math.round(a[k]*f/10)*10;if(f<1&&a[k]>0&&s[k]==0&&f>=.5)s[k]=Math.min(a[k],10)});return s}
-function doMove(a,b){const s=split(G.terrs[a].army,sendFrac);TYPES.forEach(k=>{G.terrs[a].army[k]-=s[k];G.terrs[b].army[k]+=s[k]});G.moves++;
- log("You moved "+men(s)+" men to "+MAP.T[b].name);sel=-1;tgt=[];save();panel()}
+function doMove(a,b){const s=split(G.terrs[a].army,sendFrac);if(!men(s))return;const m=orderMarch(0,a,b,s);G.moves++;
+ log("You sent "+men(s)+" men toward "+MAP.T[b].name+(m.done?" (arrived)":" · ETA "+eta(m)+" turn(s)"));sel=-1;tgt=[];save();panel()}
 function sheet(html){const m=document.createElement("div");m.className="modal";m.innerHTML=`<div class="sheet">${html}</div>`;document.body.appendChild(m);return m}
 function attackSheet(a,b){
  const s=split(G.terrs[a].army,sendFrac),d=G.terrs[b];
@@ -225,11 +252,12 @@ function attackSheet(a,b){
 async function attack(pi,a,b,s,mode){
  const src=G.terrs[a],dst=G.terrs[b],def=dst.owner;
  TYPES.forEach(k=>src.army[k]-=s[k]);
+ if(def>=0){marchesAt(b,def).forEach(m=>{addArmy(dst.army,m.army);m.done=true;log(ownerName(def)+"'s marching column at "+MAP.T[b].name+" joins the fight")});G.marches=G.marches.filter(x=>!x.done)}
  let won,att,dfs;
  if(men(dst.army)==0){won=true;att=s;dfs=army0()}
  else{const Bt=await battle({att:{o:pi,a:s},def:{o:def,a:dst.army},walls:dst.cap>=0,mode,name:MAP.T[b].name});won=Bt.winner==Bt.attSide;att=Bt.surv[Bt.attSide];dfs=Bt.surv[1-Bt.attSide]}
  const nm=MAP.T[b].name;
- if(won){dst.army=att;dst.owner=pi;
+ if(won){dst.army=att;dst.owner=pi;G.tired.push(b);
   let msg=P(pi).name+" took "+nm+(def>=0?" from "+ownerName(def):"");
   if(dst.cap>=0&&def>=0){const loot=Math.floor(P(def).gold/2);P(def).gold-=loot;P(pi).gold+=loot;msg+=" 🏰 and looted 💰"+loot;if(def==0||pi==0)toast("🏰 Castle "+nm+" fell! 💰"+loot+" looted",3000)}
   log(msg);
@@ -251,12 +279,13 @@ function endScreen(win){localStorage.removeItem("dod_save");
 async function startTurn(){
  const p=P(G.cur);
  if(!p.alive){return nextPlayer()}
+ if(!G.econDone){G.tired=[];G.marches=G.marches||[]}
  if(!G.econDone){const msg=applyEcon(G.cur);G.econDone=true;if(msg&&G.cur==0)toast("🌾 "+msg,3000)}
  save();
- if(p.ai){panel();await sleep(250);await aiTurn(G.cur);if(G.over)return;nextPlayer()}
+ if(p.ai){panel();await sleep(250);await aiTurn(G.cur);if(G.over)return;advanceMarches(G.cur);nextPlayer()}
  else{G.phase=G.phase||"recruit";sel=-1;tgt=[];panel()}
 }
-function endTurn(){G.phase="recruit";nextPlayer()}
+function endTurn(){advanceMarches(0);G.phase="recruit";nextPlayer()}
 function nextPlayer(){if(G.over)return;G.cur=(G.cur+1)%G.players.length;if(G.cur==0)G.turn++;G.econDone=false;G.phase="recruit";G.moves=0;save();startTurn()}
 
 // ---------- AI ----------
@@ -276,7 +305,7 @@ async function aiTurn(pi){
  const maxA={aggressive:4,turtle:1,opportunist:3}[pers],thr={aggressive:1.25,turtle:2.2,opportunist:1.6}[pers];
  const leader=G.players.filter(q=>q.alive&&q.id!=pi).sort((x,y)=>G.terrs.filter(t=>t.owner==y.id).length-G.terrs.filter(t=>t.owner==x.id).length)[0];
  for(let n=0;n<maxA;n++){let best=null,bs=0;
-  G.terrs.forEach((t,a)=>{if(t.owner!=pi||men(t.army)<20)return;const send=split(t.army,pers=="aggressive"?.85:.7);
+  G.terrs.forEach((t,a)=>{if(t.owner!=pi||men(t.army)<20||G.tired.includes(a))return;const send=split(t.army,pers=="aggressive"?.85:.7);
    T[a].adj.forEach(b=>{const d=G.terrs[b];if(d.owner==pi)return;let r=pow(send)/(pow(d.army)*(d.cap>=0?1.5:1)+1);if(r<thr)return;
     let sc=r+d.gold*.3+(d.cap>=0?2:0);if(pers=="opportunist"&&d.owner>=0&&G.terrs.filter(q=>q.owner==d.owner).length<4)sc+=2;
     if(pers=="aggressive"&&leader&&d.owner==leader.id)sc+=1.5;if(d.owner<0)sc+=pers=="turtle"?1:.3;
@@ -290,8 +319,8 @@ async function aiTurn(pi){
  const dist=G.terrs.map(()=>99);const q=[];G.terrs.forEach((t,k)=>{if(t.owner==pi&&enemyAdj(k).length){dist[k]=0;q.push(k)}});
  while(q.length){const u=q.shift();T[u].adj.forEach(v=>{if(G.terrs[v].owner==pi&&dist[v]>dist[u]+1){dist[v]=dist[u]+1;q.push(v)}})}
  let mv=0;G.terrs.forEach((t,k)=>{if(mv>=3||t.owner!=pi||dist[k]==0||dist[k]==99||men(t.army)==0)return;
-  const nb=T[k].adj.filter(v=>G.terrs[v].owner==pi&&dist[v]<dist[k])[0];if(nb==null)return;const keep=t.cap>=0?(pers=="turtle"?.5:.25):0;
-  const s=split(t.army,1-keep);TYPES.forEach(x=>{t.army[x]-=s[x];G.terrs[nb].army[x]+=s[x]});mv++});
+  if(G.tired.includes(k))return;let dest=-1,bd=99;G.terrs.forEach((u,j)=>{if(u.owner==pi&&dist[j]==0){const p=friendlyPath(pi,k,j);if(p&&p.length<bd){bd=p.length;dest=j}}});if(dest<0)return;
+  const keep=t.cap>=0?(pers=="turtle"?.5:.25):0;const s=split(t.army,1-keep);if(!men(s))return;orderMarch(pi,k,dest,s);window.__aiMarched=(window.__aiMarched||0)+1;mv++});
  save();
 }
 function defendPrompt(pi,a,b,send){return new Promise(res=>{const d=G.terrs[b];
@@ -499,7 +528,8 @@ function startUI(){const rv=$("rivals");rv.innerHTML=[2,3,4,5].map(n=>`<button c
 $("newB").onclick=()=>{$("start").classList.add("hidden");newGame(nAI);sizeMap();renderMapBase();panel()};
 $("resB").onclick=()=>{try{G=JSON.parse(localStorage.dod_save);MAP=genMap(G.seed);$("start").classList.add("hidden");sizeMap();renderMapBase();
  if(G.cur!=0){G.econDone=true;startTurn()}else panel()}catch(e){toast("Save could not be loaded");}};
-$("helpB").onclick=()=>{const m=sheet(`<h2>📜 How to play</h2><p><b>Each turn:</b> ① Recruit at your castles 🏰 with gold, ② Attack neighbors, ③ Fortify (3 moves), then rivals move.</p>
+$("helpB").onclick=()=>{const m=sheet(`<h2>📜 How to play</h2><p><b>Each turn:</b> ① Recruit at your castles 🏰 with gold, ② Attack neighbors, ③ Fortify / March (3 orders), then rivals move.</p>
+<p><b>Movement:</b> armies move <b>one territory per turn</b> 🚶 (cavalry-only columns 🐎 move 2). Ordering troops to a distant friendly land creates a marching column (dashed arrow + ⏳ turns left); it takes its first step at once, then one step each time you end your turn. You can only attack lands next to where troops stand, so new recruits must march to the front. Troops that conquered or arrived this turn rest until next turn. If an enemy takes a land on the path, the column halts; if an enemy attacks the land a column is on, it joins the defense.</p>
 <p><b>Economy:</b> territories give 💰 gold and 🌾 food. Owning a whole region adds its bonus. Every 10 men eat 🌾1 per turn (cavalry 2). If food runs out, men desert. Lose your home castle and income drops sharply; capture a rival castle to loot half their treasury and recruit there.</p>
 <p><b>Battles:</b> place groups in your zone, pick formations and orders, then Fight. ${TYPES.map(k=>UT[k].ic+" "+UT[k].n).join(", ")}.</p>
 <p>🛡 Scutum shields stop most arrows. 🔱 Pikes wreck cavalry from the front. 🐎 Cavalry charge hard and love flanks. 🎯 Longbows outrange short bows; 🏹 short bows shoot faster. Hits on the side ×1.5, rear ×2.2, and shatter morale. Broken groups rout 🏳.</p>

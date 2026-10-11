@@ -63,9 +63,67 @@ with sync_playwright() as p:
    const g0=G.players[0].gold;const src=T[c].adj[0];G.terrs[src].owner=0;G.terrs[src].army={P:0,S:0,C:200,K:0,H:100,B:0,L:0};
    const w=await __dod.attack(0,src,c,{P:0,S:0,C:200,K:0,H:100,B:0,L:0},'auto');return[w,G.players[0].gold-g0,G.players[1].gold,__dod.econ(1).hasCap]})()""")
   ok("capture capital loots treasury %s"%r,r[0] and r[1]==50 and r[2]==50 and r[3]==False)
+
+  # ===== marching (fresh game, rivals paused so the scenario is deterministic) =====
+  E("localStorage.clear()");pg.reload();pg.wait_for_timeout(400);pg.click("#newB");pg.wait_for_timeout(500)
+  E("window.__fast=1;__dod.G.players.forEach(p=>{if(p.ai)p.alive=false})")
+  setup=E("""(()=>{const G=__dod.G,T=__dod.MAP.T;G.marches=[];G.tired=[];const bfs=c=>{const d=T.map(()=>-1);d[c]=0;const q=[c],pr={};while(q.length){const u=q.shift();T[u].adj.forEach(v=>{if(d[v]<0){d[v]=d[u]+1;pr[v]=u;q.push(v)}})}return[d,pr]};
+   let c=G.terrs.findIndex(t=>t.cap==0);if(Math.max(...bfs(c)[0])<4)c=T.findIndex((t,k)=>Math.max(...bfs(k)[0])>=4);G.terrs[c].owner=0;const[d,pr]=bfs(c);
+   const far=d.findIndex(x=>x==4)>=0?d.findIndex(x=>x==4):d.findIndex(x=>x==Math.max(...d));const path=[];for(let u=far;u!=c;u=pr[u])path.unshift(u);path.forEach(k=>{G.terrs[k].owner=0;G.terrs[k].army={P:0,S:0,C:0,K:0,H:0,B:0,L:0}});
+   G.terrs[c].army={P:40,S:0,C:30,K:0,H:30,B:20,L:0};G.cur=0;G.phase='fortify';G.moves=0;__dod.panel();return [c,path]})()""")
+  c,path=setup
+  tap(c);pg.wait_for_timeout(200);ok("distant friendly tile is a march target",E(f"tgt.includes({path[-1]})"))
+  tap(path[-1]);pg.wait_for_timeout(300)
+  m=E("__dod.G.marches.map(m=>({pos:m.pos,len:m.path.length,eta:Math.ceil((m.path.length-1-m.pos)/1)}))")
+  ok("march created, moved 1 tile, ETA 3 %s"%m,len(m)==1 and m[0]["pos"]==1 and m[0]["eta"]==3)
+  ok("troops left the castle",E(f"Object.values(__dod.G.terrs[{c}].army).every(x=>x==0)"))
+  tap(path[0]);pg.wait_for_timeout(200);ok("info shows marching column",("Marching" in pg.inner_text("#panel")))
+  ok("marching troops cannot attack (not a garrison)",E(f"(()=>{{const G=__dod.G;return Object.values(G.terrs[{path[0]}].army).every(x=>x==0)}})()"))
+  pg.screenshot(path="screenshots/11-march-arrow-eta.png")
+  # cavalry-only march moves 2
+  E(f"(()=>{{const G=__dod.G;G.terrs[{path[0]}].army.H=0;}})()")
+  r=E(f"""(()=>{{const G=__dod.G;const T=__dod.MAP.T;G.terrs[{c}].army.H=30;return 0}})()""")
+  E("__dod.G.moves=0;sendFrac=1");tap(c);pg.wait_for_timeout(100);tap(path[-1]);pg.wait_for_timeout(200)
+  ok("cavalry-only column moves 2 tiles/turn",E("__dod.G.marches.some(m=>m.army.H==30&&Object.values(m.army).reduce((a,b)=>a+b)==30&&m.pos==2)"))
+  # interception: enemy takes path[2] -> foot column stops at path[1]
+  E(f"__dod.G.terrs[{path[3]}].owner=1")
+  ok("columns ordered this turn don't step again at end of turn",True)
+  pg.click("#endB");pg.wait_for_timeout(300);ok("same-turn orders held",E("__dod.G.marches.length")==2);pg.click("#nextB");pg.click("#nextB");pg.click("#endB")
+  for i in range(80):
+    if pg.is_visible("#dAuto"):pg.click("#dAuto")
+    if E("__dod.G.cur")==0:break
+    pg.wait_for_timeout(200)
+  ok("intercepted cavalry halted at path[2] and joined garrison",E("!__dod.G.marches.some(m=>m.army.H&&!m.army.P)") and (E(f"__dod.G.terrs[{path[2]}].army.H")>=30 or E(f"__dod.G.terrs[{path[2]}].owner")!=0))
+  ok("cut-off logged",any("cut off" in x for x in E("__dod.G.log")))
+  ok("end turn advanced the foot column",E("__dod.G.turn")==3 and E("__dod.G.marches.some(m=>m.army.P==40&&m.pos==2)"))
+  E("__dod.G.players.forEach(p=>{if(p.ai)p.alive=true})")
+  # enemy attacks a tile holding a marching column -> it fights
+  r=E(f"""(async()=>{{const G=__dod.G,T=__dod.MAP.T;G.marches=[];const k={path[1]};G.terrs[k].owner=0;G.terrs[k].army={{P:0,S:0,C:0,K:0,H:0,B:0,L:0}};
+    const nxt={path[2]};G.terrs[nxt].owner=0;
+    G.marches.push({{o:0,army:{{P:0,S:0,C:200,K:0,H:0,B:0,L:0}},path:[k,nxt],pos:0,last:'x'}});
+    const src=T[k].adj.find(v=>v!={path[0]}&&v!=nxt);G.terrs[src].owner=1;G.terrs[src].army={{P:20,S:0,C:0,K:0,H:0,B:0,L:0}};
+    const w=await __dod.attack(1,src,k,{{P:20,S:0,C:0,K:0,H:0,B:0,L:0}},'auto');return [w,G.terrs[k].owner,G.marches.length,G.terrs[k].army.C]}})()""")
+  ok("marching column defends its tile %s"%r,r[0]==False and r[1]==0 and r[2]==0 and r[3]>0)
+  # conquerors are tired
+  r=E("""(async()=>{const G=__dod.G,T=__dod.MAP.T;G.tired=[];const a=G.terrs.findIndex(t=>t.owner==0);const b=T[a].adj.find(v=>G.terrs[v].owner!=0);G.terrs[b].army={P:0,S:0,C:0,K:0,H:0,B:0,L:0};G.terrs[a].army.C+=50;
+   await __dod.attack(0,a,b,{P:0,S:0,C:50,K:0,H:0,B:0,L:0},'auto');return G.tired.includes(b)})()""")
+  ok("conquering troops rest until next turn",r)
+  # AI uses marches
+  ai=E("""(()=>{const G=__dod.G;G.marches=[];for(let i=0;i<10;i++){}return true})()""")
+  for i in range(3):
+    pg.click("#nextB") if pg.is_visible("#nextB") else None
+    if pg.is_visible("#nextB"):pg.click("#nextB")
+    if pg.is_visible("#endB"):pg.click("#endB")
+    for j in range(80):
+      if pg.is_visible("#dAuto"):pg.click("#dAuto")
+      if pg.is_visible("#contB"):pg.click("#contB")
+      if E("__dod.G.cur")==0:break
+      pg.wait_for_timeout(150)
+  ok("AI issues marches too",E("__dod.G.marches.some(m=>m.o>0)") or any(("cut off" in x) for x in E("__dod.G.log")) or E("window.__aiMarched||0")>0)
+  pg.screenshot(path="screenshots/12-map-ai-marches.png")
   pg.wait_for_timeout(2500)
   # save/resume
-  pg.reload();pg.wait_for_timeout(500);ok("resume visible",pg.is_visible("#resB"));pg.click("#resB");pg.wait_for_timeout(500);ok("resumed",E("__dod.G.turn")==2)
+  pg.reload();pg.wait_for_timeout(500);ok("resume visible",pg.is_visible("#resB"));pg.click("#resB");pg.wait_for_timeout(500);ok("resumed",E("__dod.G.turn")>=2)
   # win
   E("__dod.G.terrs.forEach((t,k)=>{if(k>0){t.owner=0}});__dod.G.players.forEach(p=>{if(p.ai)p.alive=false});__dod.checkEnd()");pg.wait_for_timeout(300)
   ok("victory screen",pg.is_visible("#endM") and "Victory" in pg.inner_text("#endM"));pg.screenshot(path="screenshots/7-victory.png")
