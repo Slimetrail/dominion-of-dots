@@ -1,0 +1,70 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#3b2a1a"><link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png"><link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Dominion of Dots</title>
+<style>
+html,body{margin:0;height:100%;background:#2a1d12;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;font-family:Georgia,"Times New Roman",serif;color:#2a1d12}
+.hidden{display:none!important}
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh}
+#top{display:flex;align-items:center;gap:6px;padding:6px 8px;padding-top:calc(6px + env(safe-area-inset-top,0px));background:#3b2a1a;color:#f6e7c1;font-size:15px;font-weight:700}
+#top .sw{width:14px;height:14px;border-radius:50%;border:2px solid #f6e7c1}
+#top .sp{flex:1}
+.mb{border:0;border-radius:10px;background:#6b4a2b;color:#f6e7c1;font:700 15px Georgia;padding:6px 10px}
+#mapC,#batC{display:block;width:100vw;touch-action:none;background:#e9d9ae}
+#panel{flex:1;background:#f3e6c4;border-top:3px solid #6b4a2b;padding:8px;overflow:auto;font-size:15px}
+#panel h3{margin:0 0 4px;font-size:17px}
+.row{display:flex;flex-wrap:wrap;gap:6px;margin:5px 0}
+.b{border:0;border-radius:12px;background:#7a5230;color:#fff8e6;font:700 15px Georgia;padding:10px 12px;min-height:44px;box-shadow:0 3px 0 #3b2a1a}
+.b.g{background:#2f6b3a}.b.r{background:#9b2c2c}.b.y{background:#c08a1e;color:#2a1d12}.b.on{outline:3px solid #ffd84a}
+.b:disabled{opacity:.45}
+.b.sm{padding:6px 9px;min-height:38px;font-size:14px}
+.chip{border:2px solid #6b4a2b;border-radius:10px;background:#fff8e6;font:700 14px Georgia;padding:5px 8px;min-height:40px;color:#2a1d12}
+.chip.on{background:#ffd84a}
+.mor{display:block;height:4px;background:#2f6b3a;border-radius:2px;margin-top:2px}
+.screen{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:20px;text-align:center;background:radial-gradient(#f6e7c1,#d8bf86);overflow:auto}
+.screen h1{font-size:38px;margin:0;color:#5a1e0e;text-shadow:2px 2px 0 #e7c779}
+.screen p{max-width:340px;margin:0;line-height:1.4}
+.big{font-size:22px;padding:14px 30px;min-width:220px}
+.modal{position:fixed;inset:0;z-index:30;background:#0007;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:#f6e7c1;border-radius:18px 18px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom,0px));width:100%;max-width:520px;max-height:80vh;overflow:auto;border-top:4px solid #6b4a2b}
+.sheet h2{margin:0 0 6px;font-size:21px}
+table{border-collapse:collapse;font-size:14px}td,th{padding:3px 6px;text-align:left}
+#log{font-size:13px;max-height:90px;overflow:auto;opacity:.85;margin-top:4px}
+#toast{position:fixed;left:50%;top:70px;transform:translateX(-50%);z-index:40;background:#3b2a1a;color:#f6e7c1;padding:8px 14px;border-radius:12px;font-weight:700;max-width:90vw;text-align:center;transition:opacity .4s}
+#bTop{display:flex;gap:6px;align-items:center;padding:6px 8px;padding-top:calc(6px + env(safe-area-inset-top,0px));background:#23361f;color:#eaf5d8;font:700 14px Georgia}
+#bTop .sp{flex:1}
+.bar{height:8px;width:70px;background:#0005;border-radius:4px;overflow:hidden;display:inline-block;vertical-align:middle}.bar i{display:block;height:100%}
+</style></head><body>
+<div id="app">
+ <div id="top"><span class="sw" id="pSw"></span><span id="tGold">💰0</span><span id="tFood">🌾0</span><span class="sp"></span><span id="tTurn"></span><button class="mb" id="menuB">☰</button></div>
+ <canvas id="mapC"></canvas>
+ <div id="panel"></div>
+</div>
+<div id="battle" class="hidden" style="position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;background:#23361f">
+ <div id="bTop"></div>
+ <canvas id="batC"></canvas>
+ <div id="bPanel" style="flex:1;background:#f3e6c4;padding:6px 8px;overflow:auto;border-top:3px solid #6b4a2b"></div>
+</div>
+<div class="screen" id="start">
+ <h1>Dominion<br>of Dots</h1>
+ <p>Conquer the realm, one battle at a time. Command your dots on the field: formations, flanks, charges and arrow storms.</p>
+ <div><b>Rivals:</b><div class="row" id="rivals" style="justify-content:center"></div></div>
+ <button class="b g big" id="newB">⚔ New Campaign</button>
+ <button class="b big" id="resB">▶ Resume</button>
+ <button class="b sm" id="helpB">📜 How to play</button>
+ <button class="b sm y" id="installBtn">📲 Install app</button>
+ <div id="installHelp" class="hidden" style="background:#fff8e6;padding:10px;border-radius:12px">Tap Chrome's <b>⋮</b> menu → <b>Install app</b> / <b>Add to Home screen</b><br><small>(iPhone: Share ⬆️ → Add to Home Screen)</small><br><button class="b sm" id="helpOk">OK</button></div>
+</div>
+<div id="toast" style="opacity:0"></div>
+<script src="game.js?v=1"></script>
+<script>if('serviceWorker'in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js?v=1');
+let deferredPrompt=null;const ib=document.getElementById("installBtn"),hp=document.getElementById("installHelp");
+const standalone=()=>matchMedia("(display-mode: standalone)").matches||matchMedia("(display-mode: fullscreen)").matches||navigator.standalone;
+if(standalone())ib.classList.add("hidden");
+addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e});
+addEventListener("appinstalled",()=>{ib.classList.add("hidden");hp.classList.add("hidden");deferredPrompt=null});
+ib.onclick=async()=>{if(deferredPrompt){deferredPrompt.prompt();const r=await deferredPrompt.userChoice;deferredPrompt=null;if(r.outcome==="accepted")ib.classList.add("hidden")}else hp.classList.remove("hidden")};
+document.getElementById("helpOk").onclick=()=>hp.classList.add("hidden");
+</script>
+</body></html>
