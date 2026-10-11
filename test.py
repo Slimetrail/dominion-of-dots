@@ -30,6 +30,7 @@ with sync_playwright() as p:
   # drag a group
   bb=pg.locator("#batC").bounding_box();pg.mouse.move(bb["x"]+bb["width"]*.5,bb["y"]+bb["height"]*.85);pg.mouse.down();pg.mouse.move(bb["x"]+bb["width"]*.3,bb["y"]+bb["height"]*.8,steps=5);pg.mouse.up()
   pg.screenshot(path="screenshots/3-deployment.png")
+  ok("neutral color is dark slate",E("ownerCol(-1)")=="#2b2f36");pg.screenshot(path="screenshots/13-neutral-dark-deploy.png")
   pg.click("#fightB");pg.click("[data-g='-2']");pg.click("[data-cmd=advance]");E("bSpeed=4");pg.wait_for_timeout(5000);pg.screenshot(path="screenshots/4-mid-battle.png")
   ok("battle running",E("__B.t")>3 and not E("__B.over") or E("__B.over"))
   ok("arrows flew / casualties",E("__B.dots.some(d=>!d.alive)"))

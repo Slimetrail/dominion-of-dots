@@ -16,7 +16,7 @@ const COLORS=["#1d4ed8","#b91c1c","#15803d","#7e22ce","#c2410c","#0f766e"];
 const PNAMES=["You","Crimson Duke","Verdant League","Violet Throne","Amber Khan","Teal Republic"];
 const PERS=["aggressive","turtle","opportunist"];
 const PERS_IC={aggressive:"🔥 Aggressive",turtle:"🐢 Turtle",opportunist:"🦊 Opportunist"};
-const NEUT="#9a8a6a";
+const NEUT="#2b2f36";
 const SYL1=["Oak","Raven","Stone","Ash","Wolf","Iron","Mill","Thorn","Elder","Frost","Gold","Marsh","Brook","Hawk","Red","Black","Silver","Fair","Grey","Wind","Salt","Fox","Elm","Bram"];
 const SYL2=["vale","ford","hold","mere","wick","moor","fell","ton","haven","crag","field","march","gate","wood","stead","bury","holm","reach"];
 const REGN=["Northmarch","Highcrown","Westmoor","Eastfen","Southreach","Kingsdale"];
@@ -150,7 +150,7 @@ function renderMapBase(){
  const cols=G.terrs.map(t=>hex(ownerCol(t.owner)));const par=[236,220,176],sea=[150,178,170];
  for(let p=0;p<W*H;p++){const a=id[p],s=shade[p];let r,g,b;
   if(a<0){r=sea[0]*s;g=sea[1]*s;b=sea[2]*s;const y=Math.floor(p/W),x=p%W;if(Math.sin(x*.09+Math.sin(y*.05)*4)>0.96){r+=18;g+=18;b+=18}}
-  else{const c=cols[a],m=G.terrs[a].owner<0?.25:.42;r=(par[0]*(1-m)+c[0]*m)*s;g=(par[1]*(1-m)+c[1]*m)*s;b=(par[2]*(1-m)+c[2]*m)*s}
+  else{const c=cols[a],m=G.terrs[a].owner<0?.12:.42;r=(par[0]*(1-m)+c[0]*m)*s;g=(par[1]*(1-m)+c[1]*m)*s;b=(par[2]*(1-m)+c[2]*m)*s}
   const v=bd[p];if(v==1){r*=.62;g*=.55;b*=.5}else if(v>=2){r=r*.3+40;g=g*.25+28;b=b*.2+18;if(v==5||v==4){r=r*.6+60;g=g*.6+45;b=b*.6+30}}
   d[p*4]=r;d[p*4+1]=g;d[p*4+2]=b;d[p*4+3]=255}
  mapImg=img;
@@ -459,7 +459,7 @@ function bLoop(ts){if(!CB)return;const B=CB;
 function shape(c,t,x,y,col){c.fillStyle=col;c.beginPath();
  if(t=="C"){c.rect(x-2.6,y-2.6,5.2,5.2)}else if(t=="K"){c.moveTo(x,y-3.4);c.lineTo(x+3,y+2.4);c.lineTo(x-3,y+2.4);c.closePath()}
  else if(t=="H"){c.moveTo(x,y-4);c.lineTo(x+4,y);c.lineTo(x,y+4);c.lineTo(x-4,y);c.closePath()}
- else if(t=="P"){c.arc(x,y,1.8,0,7)}else c.arc(x,y,2.6,0,7);c.fill();
+ else if(t=="P"){c.arc(x,y,1.8,0,7)}else c.arc(x,y,2.6,0,7);c.fill();if(col==NEUT){c.strokeStyle="#e8edf2";c.lineWidth=.9;c.stroke()}
  if(t=="B"||t=="L"){c.strokeStyle="#fff";c.lineWidth=t=="L"?1.4:.8;c.beginPath();c.arc(x,y,t=="L"?3.6:3,0,7);c.stroke()}
  if(t=="S"){c.strokeStyle="#000a";c.lineWidth=.8;c.beginPath();c.moveTo(x-2,y-2);c.lineTo(x+2,y+2);c.stroke()}}
 function drawBattle(){const B=CB,c=bx,s=bc.width/FW;c.setTransform(1,0,0,1,0,0);c.drawImage(grass,0,0,bc.width,bc.height);c.setTransform(s,0,0,s,0,0);
