@@ -34,10 +34,13 @@ table{border-collapse:collapse;font-size:14px}td,th{padding:3px 6px;text-align:l
 #toast{pointer-events:none;position:fixed;left:50%;top:70px;transform:translateX(-50%);z-index:40;background:#3b2a1a;color:#f6e7c1;padding:8px 14px;border-radius:12px;font-weight:700;max-width:90vw;text-align:center;transition:opacity .4s}
 #bTop{display:flex;gap:6px;align-items:center;padding:6px 8px;padding-top:calc(6px + env(safe-area-inset-top,0px));background:#23361f;color:#eaf5d8;font:700 14px Georgia}
 #bTop .sp{flex:1}
+#tut{position:fixed;left:6px;right:6px;top:calc(46px + env(safe-area-inset-top,0px));z-index:35;background:#fff8e6;border:3px solid #c08a1e;border-radius:14px;padding:8px 10px;font-size:14px;line-height:1.35;box-shadow:0 4px 14px #0006}
+#tut .row{margin:4px 0 0}
+#tut.min{left:auto;right:8px;padding:0;border:0;background:none;box-shadow:none}
 .bar{height:8px;width:70px;background:#0005;border-radius:4px;overflow:hidden;display:inline-block;vertical-align:middle}.bar i{display:block;height:100%}
 </style></head><body>
 <div id="app">
- <div id="top"><span class="sw" id="pSw"></span><span id="tGold">💰0</span><span id="tFood">🌾0</span><span class="sp"></span><span id="tTurn"></span><button class="mb" id="menuB">☰</button></div>
+ <div id="top"><span class="sw" id="pSw"></span><span id="tGold">💰0</span><span id="tFood">🌾0</span><span id="tSea" style="font-size:13px"></span><span class="sp"></span><span id="tTurn"></span><button class="mb" id="menuB">☰</button></div>
  <canvas id="mapC"></canvas>
  <div id="panel"></div>
 </div>
@@ -49,16 +52,18 @@ table{border-collapse:collapse;font-size:14px}td,th{padding:3px 6px;text-align:l
 <div class="screen" id="start">
  <h1>Dominion<br>of Dots</h1>
  <p>Conquer the realm, one battle at a time. Command your dots on the field: formations, flanks, charges and arrow storms.</p>
+ <div><b>Difficulty:</b><div class="row" id="diffs" style="justify-content:center"></div></div>
  <div><b>Rivals:</b><div class="row" id="rivals" style="justify-content:center"></div></div>
  <button class="b g big" id="newB">⚔ New Campaign</button>
  <button class="b big" id="resB">▶ Resume</button>
+ <button class="b y big" id="tutB">🎓 Learn to Play</button>
  <button class="b sm" id="helpB">📜 How to play</button>
  <button class="b sm y" id="installBtn">📲 Install app</button>
  <div id="installHelp" class="hidden" style="background:#fff8e6;padding:10px;border-radius:12px">Tap Chrome's <b>⋮</b> menu → <b>Install app</b> / <b>Add to Home screen</b><br><small>(iPhone: Share ⬆️ → Add to Home Screen)</small><br><button class="b sm" id="helpOk">OK</button></div>
 </div>
 <div id="toast" style="opacity:0"></div>
-<script src="game.js?v=4"></script>
-<script>if('serviceWorker'in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js?v=4');
+<script src="game.js?v=5"></script>
+<script>if('serviceWorker'in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js?v=5');
 let deferredPrompt=null;const ib=document.getElementById("installBtn"),hp=document.getElementById("installHelp");
 const standalone=()=>matchMedia("(display-mode: standalone)").matches||matchMedia("(display-mode: fullscreen)").matches||navigator.standalone;
 if(standalone())ib.classList.add("hidden");

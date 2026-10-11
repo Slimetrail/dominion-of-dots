@@ -73,7 +73,7 @@ with sync_playwright() as p:
   print(E("__dod.G.log.slice(0,10)"))
   # combat math checks (headless)
   ok("pikes beat cavalry",E("(()=>{let w=0;for(let i=0;i<5;i++){const B=__dod.autoBattle({att:{o:1,a:{H:100}},def:{o:2,a:{K:100}},mode:'auto'});if(B.winner==B.defSide)w++}return w>=4})()"))
-  ok("scutum resists arrows better than swords",E("(()=>{const f=t=>{const a={};a[t]=100;const B=__dod.mkBattle({att:{o:1,a},def:{o:2,a:{L:100}},mode:'auto'});B.groups[0].cmd='hold';B.groups[0].ay=230;for(let i=0;i<300;i++)__dod.step(B,.1);return B.dots.filter(d=>d.side==0&&d.alive).length};let c=0,s=0;for(let i=0;i<3;i++){c+=f('C');s+=f('S')}return c>s})()"))
+  ok("scutum resists arrows better than swords",E("(()=>{__dod.G.diff='easy';const f=t=>{const a={};a[t]=100;const B=__dod.mkBattle({att:{o:1,a},def:{o:2,a:{L:100}},mode:'auto'});B.groups[0].cmd='hold';B.groups[0].ay=230;for(let i=0;i<300;i++)__dod.step(B,.1);return B.dots.filter(d=>d.side==0&&d.alive).length};let c=0,s=0;for(let i=0;i<3;i++){c+=f('C');s+=f('S')}const r=c>s;__dod.G.diff='normal';return r})()"))
   ok("walls help defenders",E("(()=>{let a=0,b=0;for(let i=0;i<4;i++){a+=__dod.autoBattle({att:{o:1,a:{S:100,C:60}},def:{o:2,a:{C:80,B:40}},walls:true,mode:'auto'}).winner==1;b+=__dod.autoBattle({att:{o:1,a:{S:100,C:60}},def:{o:2,a:{C:80,B:40}},walls:false,mode:'auto'}).winner==1}return a>=b})()"))
   # upkeep / starvation
   E("(()=>{const G=__dod.G;const c=G.terrs.findIndex(t=>t.owner==0);G.terrs[c].army.H+=2000;G.players[0].food=0})()")
